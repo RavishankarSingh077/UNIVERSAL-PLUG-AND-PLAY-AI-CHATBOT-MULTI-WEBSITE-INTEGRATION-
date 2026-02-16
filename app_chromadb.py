@@ -21,6 +21,7 @@ load_dotenv()
 
 # Core libraries
 from fastapi import FastAPI, HTTPException, Request, Body
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator, root_validator
 import uvicorn
@@ -7724,19 +7725,25 @@ async def list_collections():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """Root endpoint"""
-    return {
-        "message": "ChromaDB RAG Chatbot API",
-        "version": "2.0.0",
-        "endpoints": {
-            "crawl": "/crawl-and-store",
-            "chat": "/chat",
-            "collections": "/collections",
-            "health": "/health"
-        }
-    }
+    """Serve the chatbot frontend at the root URL."""
+    try:
+        # Priority 1: Use chatbot-widget.html if exists
+        # Priority 2: Use frontend/chatbot.html as fallback
+        html_path = "chatbot-widget.html"
+        if not os.path.exists(html_path):
+            html_path = os.path.join("frontend", "chatbot.html")
+            
+        if os.path.exists(html_path):
+            with open(html_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return content
+        else:
+            return "Chatbot frontend file not found."
+    except Exception as e:
+        logger.error(f"Error serving frontend: {e}")
+        return f"Error loading chatbot: {str(e)}"
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring server status"""
