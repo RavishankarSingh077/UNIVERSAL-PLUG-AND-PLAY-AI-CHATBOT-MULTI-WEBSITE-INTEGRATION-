@@ -1,241 +1,78 @@
-# Universal Website Chatbot
+# Universal Website Chatbot (Multi-Website Integration)
 
-A professional AI-powered chatbot that can be branded for any website. It provides intelligent responses about a company's services and content using Groq + ChromaDB retrieval augmented generation.
+A professional AI-powered chatbot that can be integrated into any website. It provides intelligent responses about a company's services and content using **Mistral AI / Groq** + **ChromaDB** (Retrieval Augmented Generation).
 
 ## 🚀 Features
 
-- **AI-Powered Responses**: Uses OpenAI GPT-4o-mini for intelligent conversations
-- **RAG System**: Automatically scrapes and learns from your website content
-- **Professional UI**: Light blue theme matching company branding
-- **Real-time Chat**: Typing animations and smooth user experience
-- **AWS Ready**: Designed for AWS EC2 deployment
-- **Secure**: API keys protected on backend, CORS configured
-- **Responsive**: Works on desktop and mobile devices
+- **Multi-LLM Support**: Prioritizes **Mistral AI** (`mistral-medium-latest`) with automatic fallback to **Groq** (`llama-3.1-8b-instant`).
+- **RAG System**: Scrapes and learns from website content using ChromaDB for high-accuracy responses.
+- **Branding-Aware**: Dynamically extracts company info and adapts its voice to the website.
+- **Mobile Responsive**: Fully optimized for desktop and mobile browsers.
+- **Docker Ready**: Includes a Dockerfile for easy deployment on Hugging Face Spaces or other cloud providers.
 
 ## 📁 Project Structure
 
 ```
-website-chatbot/
-├── backend/
-│   ├── app.py                 # FastAPI application
-│   ├── requirements.txt       # Python dependencies
-│   └── utils/
-│       └── rag_helper.py     # RAG system for website scraping
-├── frontend/
-│   └── chatbot.html          # Chat widget for website integration
-└── README.md                 # This file
+.
+├── app_chromadb.py         # Main FastAPI backend (RAG + LLM)
+├── chatbot-widget.html     # All-in-one widget for easy integration
+├── frontend/               # Dedicated frontend files
+│   └── chatbot.html        # Enhanced chat interface
+├── requirements.txt        # Python dependencies
+├── Dockerfile              # Deployment configuration
+└── env.example             # Environment variable template
 ```
 
-## 🛠️ Setup Instructions
+## 🛠️ Local Setup Instructions
 
-### 1. Backend Setup (AWS EC2)
+### 1. Prerequisites
+- Python 3.10 or higher
+- Mistral AI and/or Groq API Keys
 
-#### Prerequisites
-- AWS EC2 instance (Ubuntu 22.04 LTS recommended)
-- OpenAI API key
-- Python 3.9+
-
-#### Installation Steps
-
-1. **Connect to your EC2 instance:**
+### 2. Installation
+1. **Clone the repository**:
    ```bash
-   ssh -i your-key.pem ubuntu@your-ec2-ip
+   git clone https://github.com/RavishankarSingh077/UNIVERSAL-PLUG-AND-PLAY-AI-CHATBOT-MULTI-WEBSITE-INTEGRATION-.git
+   cd UNIVERSAL-PLUG-AND-PLAY-AI-CHATBOT-MULTI-WEBSITE-INTEGRATION-
    ```
 
-2. **Update system and install dependencies:**
+2. **Create a virtual environment (optional but recommended)**:
    ```bash
-   sudo apt update
-   sudo apt install python3-pip python3-venv git -y
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. **Clone and setup project:**
+3. **Install dependencies**:
    ```bash
-   git clone <your-repo-url>
-   cd website-chatbot/backend
-   python3 -m venv venv
-   source venv/bin/activate
    pip install -r requirements.txt
    ```
 
-4. **Set environment variables:**
+4. **Configure environment variables**:
+   Create a `.env` file from `env.example`:
    ```bash
-   export OPENAI_API_KEY="your-openai-api-key-here"
+   cp env.example .env
    ```
+   Edit `.env` and add your `MISTRAL_API_KEY` or `GROQ_API_KEY`, and set your `WEBSITE_URL`.
 
-5. **Run the application:**
+### 3. Running the Application
+1. **Start the Backend**:
    ```bash
-   uvicorn app:app --host 0.0.0.0 --port 8000
+   uvicorn app_chromadb:app --reload
    ```
+   The API will be live at `http://127.0.0.1:8000`.
 
-6. **Configure AWS Security Group:**
-   - Open port 8000 for HTTP traffic
-   - Optionally open port 443 for HTTPS
-
-### 2. Frontend Integration
-
-1. **Copy the chatbot code:**
-   - Open `frontend/chatbot.html`
-   - Copy the entire content
-
-2. **Update API URL:**
-   - Replace `https://your-backend-url.com/chat` with your actual EC2 URL
-   - Example: `https://your-ec2-ip:8000/chat`
-
-3. **Add to your website:**
-   - Paste the code before `</body>` tag in your website's HTML
-   - Or include it as a separate script file
-
-### 3. Optional: Custom Domain Setup
-
-1. **Using Cloudflare (Recommended):**
-   - Add your EC2 IP to Cloudflare
-   - Create subdomain: `api.yourdomain.com`
-   - Enable SSL/TLS
-
-2. **Using AWS Route 53:**
-   - Create hosted zone for your domain
-   - Add A record pointing to EC2 IP
-
-## 🔧 Configuration
-
-### Backend Configuration
-
-Update `backend/app.py`:
-```python
-# Change allowed origins to your domain
-allow_origins=["https://yourdomain.com", "https://www.yourdomain.com"]
-
-# Update OpenAI model if needed
-model="gpt-4o-mini"  # or "gpt-3.5-turbo" for faster/cheaper responses
-```
-
-### Frontend Configuration
-
-Update `frontend/chatbot.html`:
-```javascript
-const CHATBOT_CONFIG = {
-    apiUrl: 'https://api.yourdomain.com/chat', // Your backend URL
-    maxRetries: 3,
-    retryDelay: 1000
-};
-```
-
-## 🚀 Deployment Options
-
-### Option 1: AWS EC2 (Recommended for Production)
-- **Pros**: Full control, scalable, professional
-- **Cons**: Requires server management
-- **Cost**: ~$5-20/month depending on instance size
-
-### Option 2: Render.com (Easy Setup)
-- **Pros**: Simple deployment, automatic scaling
-- **Cons**: Limited free tier, slower cold starts
-- **Cost**: Free tier available, $7/month for always-on
-
-### Option 3: Railway.app
-- **Pros**: Modern platform, easy deployment
-- **Cons**: Limited free credits
-- **Cost**: $5/month after free credits
-
-## 📊 Performance Expectations
-
-- **Response Time**: 1-4 seconds per message
-- **Concurrent Users**: 10-50 (depending on EC2 instance)
-- **Uptime**: 99%+ with proper AWS setup
-- **Cost**: ~$0.01-0.05 per conversation (OpenAI API)
-
-## 🔒 Security Features
-
-- API keys stored securely on backend
-- CORS configured for your domain only
-- Input validation and error handling
-- Rate limiting (can be added)
-- HTTPS support with SSL certificates
-
-## 🎨 Customization
-
-### Changing Colors
-Update CSS variables in `frontend/chatbot.html`:
-```css
-/* Change these colors to match your brand */
-background: linear-gradient(135deg, #8ec5fc, #6fb1fc);
-```
-
-### Adding Company Context
-Update `backend/utils/rag_helper.py` to scrape additional pages:
-```python
-def scrape_website(base_url="https://fascai.com"):
-    # Add more URLs to scrape
-    urls = ["https://fascai.com", "https://fascai.com/about", "https://fascai.com/services"]
-    # ... scraping logic
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **CORS Errors:**
-   - Check `allow_origins` in `app.py`
-   - Ensure your domain is correctly listed
-
-2. **OpenAI API Errors:**
-   - Verify API key is correct
-   - Check API usage limits
-   - Ensure sufficient credits
-
-3. **Website Scraping Issues:**
-   - Check if yourdomain.com is accessible
-   - Verify website structure hasn't changed
-   - Check firewall/security group settings
-
-4. **Slow Responses:**
-   - Consider upgrading EC2 instance
-   - Use gpt-3.5-turbo for faster responses
-   - Check network latency
-
-## 📈 Monitoring & Analytics
-
-### Basic Monitoring
-- Check EC2 instance health in AWS Console
-- Monitor OpenAI API usage in OpenAI dashboard
-- Use browser developer tools to check API responses
-
-### Advanced Monitoring (Optional)
-- Add logging to track user interactions
-- Implement analytics dashboard
-- Set up alerts for downtime
-
-## 🔄 Updates & Maintenance
-
-### Regular Tasks
-- Update dependencies monthly
-- Monitor OpenAI API costs
-- Check website content changes
-- Review security settings
-
-### Scaling Considerations
-- Upgrade EC2 instance for more users
-- Implement load balancing for high traffic
-- Add caching for better performance
-- Consider CDN for global users
-
-## 📞 Support
-
-For issues or questions:
-1. Check this README first
-2. Review AWS EC2 logs
-3. Test API endpoints manually
-4. Check OpenAI API status
-
-## 🎯 Next Steps
-
-1. **Deploy backend** to AWS EC2
-2. **Integrate frontend** into yourdomain.com
-3. **Test thoroughly** with real users
-4. **Monitor performance** and optimize
-5. **Add features** like file uploads, multi-language support
+2. **Run the Frontend**:
+   Simply open `chatbot-widget.html` or `frontend/chatbot.html` in your web browser.
 
 ---
 
-**Ready to deploy?** Follow the setup instructions above and your branded chatbot will be live! 🚀
+## ☁️ Deployment (Hugging Face / Cloud)
 
+This project is Docker-ready. For Hugging Face Spaces:
+1. Create a new **Docker Space**.
+2. Connect this repository.
+3. Configure the `MISTRAL_API_KEY` and other variables in the Space settings.
+
+---
+
+**Universal AI Chatbot** - Powered by Mistral, Groq, and ChromaDB. 🚀
