@@ -490,7 +490,7 @@ AI_AUTOMATION_QUERY_KEYWORDS = {
     "edge ai",
 }
 
-# API Configuration
+# API Configuration - Groq
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # Secure API keys from environment variables (supports rotation)
@@ -502,16 +502,20 @@ if not GROQ_API_KEYS:
     if single_key and single_key.strip():
         GROQ_API_KEYS = [single_key.strip()]
 
-if not GROQ_API_KEYS:
-    raise ValueError("Groq API key(s) not configured. Set GROQ_API_KEYS or GROQ_API_KEY before running the application.")
-
+# Groq is optional if Mistral is provided
 GROQ_API_KEYS = list(dict.fromkeys(GROQ_API_KEYS))
-
-# Backwards compatibility constant (first key)
-GROQ_API_KEY = GROQ_API_KEYS[0]
-
 _current_groq_key_index = 0
 _groq_key_lock = asyncio.Lock()
+
+# API Configuration - Mistral
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+MISTRAL_API_URL = os.getenv("MISTRAL_API_URL", "https://api.mistral.ai/v1")
+MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-medium-latest")
+
+if not GROQ_API_KEYS and not MISTRAL_API_KEY:
+    raise ValueError("No LLM API keys configured. Set GROQ_API_KEY or MISTRAL_API_KEY before running.")
+
+# Classification cache to reduce LLM calls (universal, no hardcoded keywords)
 
 # Classification cache to reduce LLM calls (universal, no hardcoded keywords)
 _classification_cache: Dict[str, str] = {}
@@ -634,6 +638,68 @@ async def _call_groq_with_rotation(
     return None
 
 
+async def _call_mistral(
+    messages: List[Dict[str, str]],
+    max_tokens: int = 100,
+    temperature: float = 0.7,
+    model: str = None
+) -> Optional[str]:
+    """
+    Call Mistral AI API with provided configuration.
+    """
+    if not MISTRAL_API_KEY:
+        return None
+
+    model = model or MISTRAL_MODEL
+    data = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+
+    headers = {
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.post(f"{MISTRAL_API_URL}/chat/completions", headers=headers, json=data)
+            if response.status_code == 200:
+                result = response.json()
+                ai_reply = result["choices"][0]["message"]["content"]
+                from utils.rag_helper import strip_markdown # Ensure it's available or use local
+                return strip_markdown(ai_reply.strip())
+            else:
+                logger.error(f"Mistral API error {response.status_code}: {response.text}")
+        except Exception as exc:
+            logger.error(f"Mistral API request error: {exc}")
+    return None
+
+
+async def _get_llm_response(
+    messages: List[Dict[str, str]],
+    max_tokens: int = 100,
+    temperature: float = 0.7,
+    model_override: str = None
+) -> Optional[str]:
+    """
+    Generic LLM caller that prioritizes Mistral if configured, otherwise uses Groq.
+    """
+    # Try Mistral first if configured
+    if MISTRAL_API_KEY:
+        response = await _call_mistral(messages, max_tokens, temperature, model_override)
+        if response:
+            return response
+
+    # Fallback to Groq
+    if GROQ_API_KEYS:
+        return await _call_groq_with_rotation(messages, max_tokens, temperature, model_override or "llama-3.1-8b-instant")
+
+    return None
+
+
 async def classify_query_intent_with_llm(query: str) -> str:
     """
     Use LLM to intelligently classify query intent with enhanced categories.
@@ -670,7 +736,7 @@ Return ONLY the category name (e.g., "COMPANY_INFO_QUERY"). No explanation, just
             {"role": "user", "content": classification_prompt}
         ]
         
-        classification = await _call_groq_with_rotation(
+        classification = await _get_llm_response(
             messages=messages,
             max_tokens=20,  # Very short response needed
             temperature=0.3  # Low temperature for consistent classification
@@ -1024,7 +1090,7 @@ tell me about your offerings"""
             {"role": "user", "content": variation_prompt}
         ]
         
-        variations_response = await _call_groq_with_rotation(
+        variations_response = await _get_llm_response(
             messages=messages,
             max_tokens=50,
             temperature=0.7
@@ -1052,7 +1118,7 @@ Return one variation per line, no numbers or explanations."""
             {"role": "user", "content": fallback_prompt}
         ]
         
-        fallback_response = await _call_groq_with_rotation(
+        fallback_response = await _get_llm_response(
             messages=fallback_messages,
             max_tokens=50,
             temperature=0.8  # Slightly higher temperature for more diversity
@@ -4066,7 +4132,7 @@ async def generate_support_response(message: str, user_language: str, conversati
     messages.append({"role": "user", "content": message})
     
     try:
-        reply = await _call_groq_with_rotation(
+        reply = await _get_llm_response(
             messages=messages,
             max_tokens=100,
             temperature=0.7
@@ -4132,7 +4198,7 @@ async def generate_specific_project_response(message: str, user_language: str, c
     messages.append({"role": "user", "content": message})
     
     try:
-        reply = await _call_groq_with_rotation(
+        reply = await _get_llm_response(
             messages=messages,
             max_tokens=100,
             temperature=0.7
@@ -4237,7 +4303,7 @@ async def generate_company_stats_response(message: str, user_language: str, conv
     messages.append({"role": "user", "content": message})
     
     try:
-        reply = await _call_groq_with_rotation(
+        reply = await _get_llm_response(
             messages=messages,
             max_tokens=100,
             temperature=0.7
@@ -4301,7 +4367,7 @@ async def generate_comparison_response(message: str, user_language: str, convers
     messages.append({"role": "user", "content": message})
     
     try:
-        reply = await _call_groq_with_rotation(
+        reply = await _get_llm_response(
             messages=messages,
             max_tokens=100,
             temperature=0.7
@@ -4366,7 +4432,7 @@ async def generate_industry_response(message: str, user_language: str, conversat
     messages.append({"role": "user", "content": message})
     
     try:
-        reply = await _call_groq_with_rotation(
+        reply = await _get_llm_response(
             messages=messages,
             max_tokens=100,
             temperature=0.7
@@ -5819,7 +5885,7 @@ If unclear, return "General Services". No explanation, just the industry name.""
             {"role": "user", "content": industry_prompt}
         ]
         
-        industry = await _call_groq_with_rotation(
+        industry = await _get_llm_response(
             messages=messages,
             max_tokens=20,
             temperature=0.3
@@ -5881,7 +5947,7 @@ Only return valid JSON, no other text.
         ]
         
         # Call Groq API for validation
-        validated_json = await _call_groq_with_rotation(
+        validated_json = await _get_llm_response(
             messages=messages,
             max_tokens=200,
             temperature=0.3  # Lower temperature for more consistent validation
@@ -6561,7 +6627,7 @@ async def chat(request: Request):
             
             # Call Groq API with rotation
             try:
-                contact_reply = await _call_groq_with_rotation(
+                contact_reply = await _get_llm_response(
                     messages=messages,
                     max_tokens=100,
                     temperature=0.7
@@ -6641,7 +6707,7 @@ async def chat(request: Request):
             
             # Call Groq API with rotation
             try:
-                pricing_reply = await _call_groq_with_rotation(
+                pricing_reply = await _get_llm_response(
                     messages=messages,
                     max_tokens=100,
                     temperature=0.7
@@ -6721,7 +6787,7 @@ async def chat(request: Request):
             
             # Call Groq API with rotation
             try:
-                policy_reply = await _call_groq_with_rotation(
+                policy_reply = await _get_llm_response(
                     messages=messages,
                     max_tokens=100,
                     temperature=0.7
@@ -7025,7 +7091,7 @@ Return only the terms, one per line, no numbering, no explanation."""
                     {"role": "user", "content": expansion_prompt}
                 ]
                 
-                expansion_response = await _call_groq_with_rotation(
+                expansion_response = await _get_llm_response(
                     messages=expansion_messages,
                     max_tokens=60,
                     temperature=0.7
@@ -7154,7 +7220,7 @@ Return only the terms, one per line, no numbering, no explanation."""
                     max_tokens_value = 250 if is_company_desc_query else 100
                     
                     # Call Groq API with rotation
-                    ai_reply = await _call_groq_with_rotation(
+                    ai_reply = await _get_llm_response(
                         messages=messages,
                         max_tokens=max_tokens_value,
                         temperature=0.7
