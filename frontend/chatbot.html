@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -102,8 +103,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .chatbot-user {
@@ -159,12 +167,27 @@
             animation: typing 1.4s infinite ease-in-out;
         }
 
-        .chatbot-typing-dots span:nth-child(1) { animation-delay: -0.32s; }
-        .chatbot-typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+        .chatbot-typing-dots span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .chatbot-typing-dots span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
 
         @keyframes typing {
-            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
-            40% { transform: scale(1); opacity: 1; }
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
         }
 
         #chatbot-input-container {
@@ -264,13 +287,14 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Chatbot Widget -->
     <div id="chatbot-chatbot">
         <button id="chatbot-bubble" aria-label="Open AI Chatbot">
             💬
         </button>
-        
+
         <div id="chatbot-window">
             <div id="chatbot-header">
                 <div>
@@ -279,15 +303,16 @@
                 </div>
                 <button id="chatbot-close" aria-label="Close Chat">✕</button>
             </div>
-            
+
             <div id="chatbot-chat">
                 <div class="chatbot-message chatbot-bot">
                     <div class="message-content">
-                        Hello! I'm friendly AI assistant. I can help you learn about our IT & AI services. How can I assist you today?
+                        Hello! I'm friendly AI assistant. I can help you learn about our IT & AI services. How can I
+                        assist you today?
                     </div>
                 </div>
             </div>
-            
+
             <div id="chatbot-input-container">
                 <input type="text" id="chatbot-input" placeholder="Type your message..." maxlength="500">
                 <button id="chatbot-send" aria-label="Send Message">➤</button>
@@ -298,8 +323,8 @@
     <script>
         // Configuration - Chatbot Backend API
         const CHATBOT_CONFIG = {
-            apiUrl: 'http://127.0.0.1:8000/chat', // Backend API endpoint
-            websiteUrl: 'https://example.com', // Main website (configurable)
+            apiUrl: 'https://ravishankar077-my-ai-chatbot.hf.space/chat', // Live Hugging Face Space URL
+            websiteUrl: 'https://www.smarthomesinfra.com/', // Updated with your actual website
             maxRetries: 3,
             retryDelay: 1000
         };
@@ -315,29 +340,29 @@
         // State
         let isOpen = false;
         let isTyping = false;
-        
+
         // Session Management
         let sessionId = null;
-        
+
         // Initialize session ID
         function initializeSession() {
             // Check if session ID exists in localStorage
             sessionId = localStorage.getItem('chatbot_session_id');
-            
+
             // If no session ID exists, generate a new one
             if (!sessionId) {
                 sessionId = generateSessionId();
                 localStorage.setItem('chatbot_session_id', sessionId);
             }
-            
+
             console.log('Session ID:', sessionId);
         }
-        
+
         // Generate a unique session ID
         function generateSessionId() {
             return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         }
-        
+
         // Initialize session when page loads
         initializeSession();
 
@@ -345,17 +370,17 @@
         function makeUrlsClickable(text) {
             // Regular expression to match URLs (http/https/www/email)
             const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
-            
+
             return text.replace(urlRegex, (url) => {
                 let href = url;
-                
+
                 // Add protocol if missing
                 if (url.startsWith('www.')) {
                     href = 'https://' + url;
                 } else if (url.includes('@') && !url.startsWith('mailto:')) {
                     href = 'mailto:' + url;
                 }
-                
+
                 return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
             });
         }
@@ -401,17 +426,17 @@
         function addMessage(content, isUser = false) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `chatbot-message ${isUser ? 'chatbot-user' : 'chatbot-bot'}`;
-            
+
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            
+
             // Make URLs clickable for bot messages, keep plain text for user messages
             if (isUser) {
                 contentDiv.textContent = content;
             } else {
                 contentDiv.innerHTML = makeUrlsClickable(content);
             }
-            
+
             messageDiv.appendChild(contentDiv);
             chatContainer.appendChild(messageDiv);
             scrollToBottom();
@@ -427,11 +452,11 @@
             // Create message container for bot
             const messageDiv = document.createElement('div');
             messageDiv.className = 'chatbot-message chatbot-bot';
-            
+
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
             contentDiv.textContent = ''; // Start empty
-            
+
             messageDiv.appendChild(contentDiv);
             chatContainer.appendChild(messageDiv);
             scrollToBottom();
@@ -440,43 +465,43 @@
             let charIndex = 0;
             const initialSpeed = 15; // milliseconds per character for first 100 chars
             const fastSpeed = 15; // milliseconds per character after 100 chars
-            
+
             function typeNextChar() {
                 if (charIndex < content.length) {
                     // Build the text up to current character
                     const currentText = content.substring(0, charIndex + 1);
-                    
+
                     // Make URLs clickable as we type
                     contentDiv.innerHTML = makeUrlsClickable(currentText);
-                    
+
                     charIndex++;
                     scrollToBottom(); // Keep scrolling as text appears
-                    
+
                     // Use different speed based on current position
                     const currentSpeed = charIndex < 100 ? initialSpeed : fastSpeed;
                     setTimeout(typeNextChar, currentSpeed);
                 }
             }
-            
+
             // Start the typing animation
             setTimeout(typeNextChar, initialSpeed);
         }
 
         function showTyping() {
             if (isTyping) return;
-            
+
             isTyping = true;
             const typingDiv = document.createElement('div');
             typingDiv.className = 'chatbot-message chatbot-bot';
             typingDiv.id = 'typing-indicator';
-            
+
             const contentDiv = document.createElement('div');
             contentDiv.className = 'chatbot-typing';
-            
+
             const dotsDiv = document.createElement('div');
             dotsDiv.className = 'chatbot-typing-dots';
             dotsDiv.innerHTML = '<span></span><span></span><span></span>';
-            
+
             contentDiv.appendChild(dotsDiv);
             typingDiv.appendChild(contentDiv);
             chatContainer.appendChild(typingDiv);
@@ -500,7 +525,7 @@
             // Add user message (displays instantly)
             addMessageWithTypewriter(message, true);
             inputField.value = '';
-            
+
             // Disable input while processing
             inputField.disabled = true;
             sendBtn.disabled = true;
@@ -514,7 +539,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         message: message,
                         session_id: sessionId
                     })
@@ -525,7 +550,7 @@
                 }
 
                 const data = await response.json();
-                
+
                 // Hide typing and show response with typewriter effect
                 hideTyping();
                 addMessageWithTypewriter(data.reply || 'Sorry, I couldn\'t process your request.');
@@ -548,5 +573,5 @@
         });
     </script>
 </body>
-</html>
 
+</html>

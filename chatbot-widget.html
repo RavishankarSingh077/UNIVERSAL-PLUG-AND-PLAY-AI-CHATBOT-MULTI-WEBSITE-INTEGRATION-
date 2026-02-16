@@ -273,7 +273,7 @@
 // Check for data attributes on the widget container for configuration
 const widgetContainer = document.getElementById('chatbot-widget') || document.querySelector('[data-chatbot-widget]');
 const apiUrlFromData = widgetContainer?.getAttribute('data-api-url');
-const defaultApiUrl = 'http://127.0.0.1:8000/chat'; // Default for localhost development
+const defaultApiUrl = 'https://ravishankar077-my-ai-chatbot.hf.space/chat'; // Live Hugging Face Space URL
 
 const CHATBOT_CONFIG = {
     apiUrl: apiUrlFromData || defaultApiUrl, // Use data attribute or default
