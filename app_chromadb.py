@@ -681,7 +681,7 @@ async def _call_mistral(
 async def _get_llm_response(
     messages: List[Dict[str, str]],
     max_tokens: int = 512,
-    temperature: float = 0.7,
+    temperature: float = 0.8,
     model_override: str = None
 ) -> Optional[str]:
     """
@@ -4838,10 +4838,10 @@ async def generate_rag_based_response(
         # Try multiple query variations
         rag_results = []
         for query in queries[:3]:  # Try max 3 query variations
-            results = search_chroma(query, COLLECTION_NAME, n_results=3)
+            results = search_chroma(query, COLLECTION_NAME, n_results=5) # Increased results for deeper context
             if results:
                 rag_results.extend(results)
-                if len(rag_results) >= 5:  # Collect enough results
+                if len(rag_results) >= 8:  # Collect more results
                     break
         
         # Remove duplicates based on content
@@ -4853,7 +4853,7 @@ async def generate_rag_based_response(
                 seen_content.add(content_hash)
                 unique_results.append(result)
         
-        rag_results = unique_results[:5]  # Limit to top 5 unique results
+        rag_results = unique_results[:8]  # Limit to top 8 unique results
         
         # Build context from RAG results
         context_text = ""
@@ -4861,10 +4861,10 @@ async def generate_rag_based_response(
             context_text = "\n\n".join([result.get('content', '') for result in rag_results])
             logger.info(f"Found {len(rag_results)} relevant documents for {followup_type}")
         
-        # Generate response using Groq API
+        # Generate response using unified LLM caller
         language_instruction = "You MUST respond in Hindi only." if user_language == 'hindi' else "You MUST respond in English only."
         
-        # Type-specific prompt templates - SHORT responses only (1-2 sentences)
+        # Type-specific prompt templates
         prompt_templates = {
             'pricing_followup': {
                 'instruction': "The user wants pricing information. Provide clear and informative details about pricing models, available plans, and how to get an exact quote.",
@@ -4896,34 +4896,31 @@ async def generate_rag_based_response(
         
         # Customize instruction for service_followup with detected service
         if followup_type == 'service_followup' and detected_service:
-            template = template.copy()  # Create a copy to avoid modifying the original
+            template = template.copy()
             template['instruction'] = f"The user wants detailed information about {detected_service.upper()} services. Provide comprehensive details about {detected_service.upper()} implementation process, features, capabilities, business benefits, use cases, and how it can help their business."
         
         context_section = ""
         if context_text:
             context_section = f"""
-        CRITICAL: The context below contains specific information from {company}'s knowledge base.
+        CRITICAL: The context below contains specific information from {COMPANY_NAME}'s knowledge base.
         You MUST base your answer PRIMARILY on this context. Provide detailed, comprehensive information.
         
         CONTEXT FROM KNOWLEDGE BASE:
-        {context_text[:1500]}
+        {context_text[:4000]}
         
         INSTRUCTIONS: {template['instruction']}
         """
         else:
-            context_section = f"""
-        Note: Provide comprehensive information based on your knowledge about {company}'s services.
-        {template['instruction']}
-        """
+            context_section = f"Note: Provide comprehensive information based on your knowledge about {COMPANY_NAME}'s services.\n{template['instruction']}"
         
         contact_info = ""
         if template.get('include_contact', False):
-            contact_info = " For detailed information tailored to your specific needs, you can also contact info@{company_lower}.com or visit {company_lower}.com/contact."
+            contact_info = f" For detailed information tailored to your specific needs, you can also contact {CONTACT_EMAIL} or visit {WEBSITE_URL}/contact."
         
         system_prompt = f"""
 {context_section}
         
-        You are a highly intelligent and professional AI assistant for {company} {company_descriptor}.
+        You are a highly intelligent and professional AI assistant for {COMPANY_NAME} {COMPANY_DESCRIPTOR}.
         
         CRITICAL RULES:
         1. The user just said "yes" or similar after you asked if they want to know more.
@@ -4931,52 +4928,34 @@ async def generate_rag_based_response(
         3. Be enthusiastic, authoritative, and professional.
         4. Organize your response with clear points or brief paragraphs for readability.
         5. CRITICAL: Provide enough detail to be truly helpful. End with a full sentence and period.
-        6. CRITICAL: NEVER ask follow-up questions. NEVER end responses with questions like "What would you like to know?", "What do you need help with?", "Would you like to know more?", etc. Just provide the information directly and end with a period.{contact_info}
+        6. CRITICAL: NEVER ask follow-up questions. NEVER end responses with questions. Just provide the information directly and end with a period.{contact_info}
         7. LANGUAGE: {language_instruction}
-        8. NEVER mention other companies - ONLY {company} services.
+        8. NEVER mention other companies - ONLY {COMPANY_NAME} services.
         9. Use the context provided above to give accurate, specific information. If information is missing, state it clearly but professionally.
         
-        Remember: You represent {company} EXCLUSIVELY. Be detailed, helpful, and never ask questions.
+        Remember: You represent {COMPANY_NAME} EXCLUSIVELY. Be detailed, helpful, and never ask questions.
         """
         
-        messages = [{"role": "system", "content": apply_company_placeholders(system_prompt)}]
+        messages = [{"role": "system", "content": system_prompt}]
         if conversation_history:
-            messages.extend(conversation_history[-5:])  # Last 5 messages for context
+            messages.extend(conversation_history[-5:])
         
         # Add user intent message
         user_message = f"I want to know more. Please provide detailed information."
         messages.append({"role": "user", "content": user_message})
         
-                    attempts += 1
-                    await _advance_groq_key()
-                    continue
-
-                logger.error(
-                    f"Groq API error {response.status_code} with key {_mask_api_key(active_key)}: {response.text}"
-                )
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"AI service temporarily unavailable. Please visit {WEBSITE_URL} for more information."
-                )
+        detailed_reply = await _get_llm_response(
+            messages=messages,
+            max_tokens=600,
+            temperature=0.8
+        )
         
-        if not response or response.status_code != 200:
-            logger.error("All configured Groq API keys have been exhausted or failed.")
-            raise HTTPException(
-                status_code=503,
-                    detail=f"AI service temporarily unavailable. Please visit {WEBSITE_URL} for more information."
-            )
-        
-        if response.status_code == 200:
-            result = response.json()
-            detailed_reply = result['choices'][0]['message']['content'].strip()
+        if detailed_reply:
             detailed_reply = strip_markdown(detailed_reply)
-            logger.info(f"Generated detailed {followup_type} response via RAG + Groq")
+            logger.info(f"Generated detailed {followup_type} response via RAG + Optimized LLM")
             return detailed_reply
-        else:
-            raise HTTPException(
-                status_code=500,
-                    detail=f"AI service temporarily unavailable. Please visit {WEBSITE_URL} for more information."
-            )
+        
+        return f"I'm sorry, I couldn't find more specific details right now. Please feel free to contact us at {CONTACT_EMAIL} for personalized assistance."
             
     except Exception as e:
         logger.error(f"Error generating RAG-based response for {followup_type}: {e}")
