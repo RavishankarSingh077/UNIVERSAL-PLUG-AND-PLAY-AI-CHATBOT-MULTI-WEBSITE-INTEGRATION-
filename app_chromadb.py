@@ -5515,7 +5515,7 @@ def add_scraped_content_to_chromadb(scraped_data: List[Dict[str, str]]) -> bool:
                 
                 # Add to collection
                 collection.add(
-                    embeddings=embeddings.tolist(),
+                    embeddings=embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings,
                     documents=new_texts,
                     ids=new_ids,
                     metadatas=new_metadatas
@@ -6230,7 +6230,7 @@ def store_content_in_chroma(urls: List[str], collection_name: str = COLLECTION_N
                     # Only add if there are new items
                     if new_chunks:
                         collection.add(
-                            embeddings=new_embeddings.tolist(),
+                            embeddings=[e.tolist() if hasattr(e, "tolist") else e for e in new_embeddings],
                             documents=new_chunks,
                             ids=new_ids,
                             metadatas=new_metadatas
@@ -6243,7 +6243,7 @@ def store_content_in_chroma(urls: List[str], collection_name: str = COLLECTION_N
                     logger.error(f"Error checking existing IDs for {url}: {str(e)}")
                     # Fallback to original behavior if checking fails
                     collection.add(
-                        embeddings=embeddings.tolist(),
+                        embeddings=embeddings.tolist() if hasattr(embeddings, "tolist") else embeddings,
                         documents=chunks,
                         ids=chunk_ids,
                         metadatas=metadatas
@@ -6302,7 +6302,7 @@ def search_chroma(query: str, collection_name: str = COLLECTION_NAME, n_results:
         
         # Search
         results = collection.query(
-            query_embeddings=query_embedding.tolist(),
+            query_embeddings=query_embedding.tolist() if hasattr(query_embedding, "tolist") else query_embedding,
             n_results=n_results
         )
         
