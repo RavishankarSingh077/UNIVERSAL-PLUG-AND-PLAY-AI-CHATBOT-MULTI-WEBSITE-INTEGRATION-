@@ -670,7 +670,6 @@ async def _call_mistral(
             if response.status_code == 200:
                 result = response.json()
                 ai_reply = result["choices"][0]["message"]["content"]
-                from utils.rag_helper import strip_markdown # Ensure it's available or use local
                 return strip_markdown(ai_reply.strip())
             else:
                 logger.error(f"Mistral API error {response.status_code}: {response.text}")
