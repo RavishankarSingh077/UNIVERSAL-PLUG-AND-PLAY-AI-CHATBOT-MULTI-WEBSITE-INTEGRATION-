@@ -1791,27 +1791,8 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS configuration - Secure setup with multi-website support
-_allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
-if _allowed_origins_env:
-    # Parse comma-separated origins from environment variable
-    allowed_origins = [origin.strip() for origin in _allowed_origins_env.split(",") if origin.strip()]
-else:
-    # Default: Use WEBSITE_URL and common development origins
-    allowed_origins = [
-        WEBSITE_URL,
-        WEBSITE_URL.replace("https://", "https://www.") if WEBSITE_URL.startswith("https://") else WEBSITE_URL,
-    ]
-
-# Always add localhost origins for development
-allowed_origins.extend([
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "file://",
-    "null"
-])
+# CORS configuration - Allow all origins for universal website integration
+allowed_origins = ["*"]
 
 # Remove duplicates while preserving order
 allowed_origins = list(dict.fromkeys(allowed_origins))
@@ -5251,11 +5232,9 @@ def scrape_website_dynamic(query: str) -> Dict[str, Any]:
         # Main website URL from config
         base_url = WEBSITE_URL
         
-        # Use the new automatic crawling logic from rag_helper
-        from utils.rag_helper import scrape_website
-        
-        # Scrape all internal pages automatically (max depth 2)
-        all_content = scrape_website(base_url, max_depth=2)
+        # Use the internal extraction logic instead of internal utils module
+        extracted = extract_content(base_url)
+        all_content = extracted.get('content', '')
         
         if not all_content:
             logger.warning(f"No content scraped from {WEBSITE_URL}")
