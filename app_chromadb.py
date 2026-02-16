@@ -680,7 +680,7 @@ async def _call_mistral(
 
 async def _get_llm_response(
     messages: List[Dict[str, str]],
-    max_tokens: int = 100,
+    max_tokens: int = 512,
     temperature: float = 0.7,
     model_override: str = None
 ) -> Optional[str]:
@@ -4867,27 +4867,27 @@ async def generate_rag_based_response(
         # Type-specific prompt templates - SHORT responses only (1-2 sentences)
         prompt_templates = {
             'pricing_followup': {
-                'instruction': "The user wants pricing information. Provide brief, concise details about pricing models and how to get a quote (1-2 sentences only).",
+                'instruction': "The user wants pricing information. Provide clear and informative details about pricing models, available plans, and how to get an exact quote.",
                 'include_contact': True
             },
             'project_followup': {
-                'instruction': "The user wants to start a project. Provide brief information about the project process and how to get started (1-2 sentences only).",
+                'instruction': "The user wants to start a project. Provide detailed information about the project development process, milestones, and the next steps to get started.",
                 'include_contact': True
             },
             'service_benefits_followup': {
-                'instruction': "The user wants to know about service benefits. Provide brief, key points about how services can benefit (1-2 sentences only).",
+                'instruction': "The user wants to know about service benefits. Highlight the key business benefits, ROI, and advantages of our services with specific points.",
                 'include_contact': False
             },
             'service_info_followup': {
-                'instruction': f"The user wants information about services. Provide brief overview of {COMPANY_NAME}'s offerings (1-2 sentences only).",
+                'instruction': f"The user wants information about services. Provide a comprehensive overview of {COMPANY_NAME}'s offerings, categorized by industry or solution type.",
                 'include_contact': False
             },
             'service_followup': {
-                'instruction': "The user wants information about services. Provide brief, key details about the service (1-2 sentences only).",
+                'instruction': "The user wants information about services. Provide key details about the service implementation, features, and capabilities.",
                 'include_contact': False
             },
             'general_followup': {
-                'instruction': "The user wants more information. Provide brief, helpful information based on the context (1-2 sentences only).",
+                'instruction': "The user wants more information. Provide helpful and detailed information based on the provided context.",
                 'include_contact': False
             }
         }
@@ -4923,19 +4923,20 @@ async def generate_rag_based_response(
         system_prompt = f"""
 {context_section}
         
-        You are an AI assistant for {company} {company_descriptor}.
+        You are a highly intelligent and professional AI assistant for {company} {company_descriptor}.
         
         CRITICAL RULES:
         1. The user just said "yes" or similar after you asked if they want to know more.
-        2. Provide SHORT and COMPLETE information based on the context and instructions above.
-        3. Be enthusiastic, helpful, and professional.
-        4. CRITICAL: Keep it SHORT and COMPLETE - MUST be 1-2 sentences MAX with key points only. Maximum 100 tokens. DO NOT exceed this limit. Ensure your response is COMPLETE - end with a full sentence and period. Do NOT cut off mid-sentence.
-        5. CRITICAL: NEVER ask follow-up questions. NEVER end responses with questions like "What would you like to know?", "What do you need help with?", "Would you like to know more?", etc. Just provide the information directly and end with a period.{contact_info}
-        6. LANGUAGE: {language_instruction}
-        7. NEVER mention other companies (Google, Flipkart, etc.) - ONLY {company} services.
-        8. Use the context provided above to give accurate, specific information.
+        2. Provide comprehensive, structured, and helpful information based on the context and instructions above.
+        3. Be enthusiastic, authoritative, and professional.
+        4. Organize your response with clear points or brief paragraphs for readability.
+        5. CRITICAL: Provide enough detail to be truly helpful. End with a full sentence and period.
+        6. CRITICAL: NEVER ask follow-up questions. NEVER end responses with questions like "What would you like to know?", "What do you need help with?", "Would you like to know more?", etc. Just provide the information directly and end with a period.{contact_info}
+        7. LANGUAGE: {language_instruction}
+        8. NEVER mention other companies - ONLY {company} services.
+        9. Use the context provided above to give accurate, specific information. If information is missing, state it clearly but professionally.
         
-        Remember: You represent {company} EXCLUSIVELY. Keep it SHORT (1-2 sentences), COMPLETE, and NEVER ask questions.
+        Remember: You represent {company} EXCLUSIVELY. Be detailed, helpful, and never ask questions.
         """
         
         messages = [{"role": "system", "content": apply_company_placeholders(system_prompt)}]
@@ -4946,42 +4947,6 @@ async def generate_rag_based_response(
         user_message = f"I want to know more. Please provide detailed information."
         messages.append({"role": "user", "content": user_message})
         
-        # Generate response using Groq API (async)
-        data = {
-            "model": "llama-3.1-8b-instant",
-            "messages": messages,
-            "max_tokens": 100,
-            "temperature": 0.5
-        }
-        
-        response = None
-        active_key = None
-        attempts = 0
-        
-        async with httpx.AsyncClient(timeout=10.0) as client:  # Optimized from 30s to 15s for faster response
-            while attempts < len(GROQ_API_KEYS):
-                active_key = await _get_active_groq_key()
-                headers = {
-                    "Authorization": f"Bearer {active_key}",
-                    "Content-Type": "application/json"
-                }
-
-                try:
-                    response = await client.post(GROQ_API_URL, headers=headers, json=data)
-                except httpx.RequestError as exc:
-                    logger.error(f"Groq API request error with key {_mask_api_key(active_key)}: {exc}")
-                    attempts += 1
-                    await _advance_groq_key()
-                    continue
-
-                if response.status_code == 200:
-                    await _advance_groq_key()  # Advance key for next request (continuous rotation)
-                    break
-
-                if response.status_code in (401, 403, 429):
-                    logger.warning(
-                        f"Groq API key {_mask_api_key(active_key)} returned status {response.status_code}. Rotating to next key."
-                    )
                     attempts += 1
                     await _advance_groq_key()
                     continue
@@ -5603,21 +5568,30 @@ def extract_content(url: str) -> Dict[str, Any]:
         
         # Get headings
         for tag in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
-            text_elements.append(tag.get_text().strip())
+            text = tag.get_text().strip()
+            if len(text) > 5:
+                text_elements.append(text)
         
         # Get paragraphs
         for tag in soup.find_all('p'):
-            text_elements.append(tag.get_text().strip())
+            text = tag.get_text().strip()
+            if len(text) > 20:  # Only meaningful paragraphs
+                text_elements.append(text)
         
         # Get list items
         for tag in soup.find_all('li'):
-            text_elements.append(tag.get_text().strip())
-        
-        # Get div content with substantial text
-        for tag in soup.find_all('div'):
             text = tag.get_text().strip()
-            if len(text) > 50:
+            if len(text) > 10:
                 text_elements.append(text)
+        
+        # Get div content with substantial text, but avoid common UI fragments
+        for tag in soup.find_all('div', recursive=False): # Only top-level large divs often contain layout content
+             text = tag.get_text(separator=' ').strip()
+             if len(text) > 100:
+                 # Sub-filter to remove fragments that look like buttons/links
+                 sentences = [s.strip() for s in text.split('. ') if len(s.strip()) > 30]
+                 if sentences:
+                    text_elements.extend(sentences)
         
         # Clean and join text
         cleaned_text = clean_text(' '.join(text_elements))
