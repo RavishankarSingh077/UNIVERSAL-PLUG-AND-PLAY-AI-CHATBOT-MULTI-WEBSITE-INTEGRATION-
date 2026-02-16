@@ -12,6 +12,7 @@ beautifulsoup4==4.12.2
 # Vector Database and Embeddings
 chromadb==0.4.24
 sentence-transformers==2.3.1
+numpy<2.0.0
 
 # Machine Learning
 torch>=2.0.0
