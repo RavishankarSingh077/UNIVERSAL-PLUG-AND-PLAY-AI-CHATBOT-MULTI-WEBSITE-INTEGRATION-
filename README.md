@@ -1,3 +1,13 @@
+---
+title: Universal AI Chatbot
+emoji: 💬
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Universal Website Chatbot (Multi-Website Integration)
 
 A professional AI-powered chatbot that can be integrated into any website. It provides intelligent responses about a company's services and content using **Mistral AI / Groq** + **ChromaDB** (Retrieval Augmented Generation).
